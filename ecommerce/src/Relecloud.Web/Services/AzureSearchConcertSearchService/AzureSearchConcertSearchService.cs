@@ -42,8 +42,15 @@ namespace Relecloud.Web.Services.AzureSearchService
 
         public void Initialize()
         {
-            var serviceClient = new SearchServiceClient(this.searchServiceName, this.searchServiceCredentials);
-            InitializeConcertsIndex(serviceClient);
+            try
+            {
+                var serviceClient = new SearchServiceClient(this.searchServiceName, this.searchServiceCredentials);
+                InitializeConcertsIndex(serviceClient);
+            }
+            catch(Exception ex)
+            {
+                throw ex;
+            }
         }
 
         private void InitializeConcertsIndex(SearchServiceClient serviceClient)
@@ -61,7 +68,7 @@ namespace Relecloud.Web.Services.AzureSearchService
                     new Field(nameof(Concert.Title), DataType.String, AnalyzerName.EnMicrosoft) { IsSearchable = true, IsRetrievable = true },
                     new Field(nameof(Concert.Description), DataType.String, AnalyzerName.EnMicrosoft) { IsSearchable = true, IsRetrievable = true },
                     new Field(nameof(Concert.Price), DataType.Double) { IsSearchable = false, IsFilterable = true, IsFacetable = true, IsSortable = true, IsRetrievable = true },
-                    new Field(nameof(Concert.StartTime), DataType.DateTimeOffset) { IsSearchable = false, IsRetrievable = true, IsSortable = true, IsFilterable = true },
+                    new Field(nameof(Concert.StartTime), DataType.DateTimeOffset) { IsSearchable = false, IsRetrievable = true, IsSortable = true, IsFilterable = true }
                 },
                 Suggesters = new[]
                 {
@@ -87,9 +94,12 @@ namespace Relecloud.Web.Services.AzureSearchService
             {
                 Name = IndexNameConcerts,
                 Type = DataSourceType.AzureSql,
-                Container = new DataContainer("Concerts"),
+                Container = new DataContainer("SearchViewData"),
                 Credentials = new DataSourceCredentials(this.concertsSqlDatabaseConnectionString),
-                DataChangeDetectionPolicy = new SqlIntegratedChangeTrackingPolicy()
+                DataChangeDetectionPolicy = new HighWaterMarkChangeDetectionPolicy ("Ver"),
+                DataDeletionDetectionPolicy = new SoftDeleteColumnDeletionDetectionPolicy("IsDeleted", "true"),
+                //DataChangeDetectionPolicy = new SqlIntegratedChangeTrackingPolicy()
+                // Ref: https://docs.microsoft.com/en-us/azure/search/search-howto-connecting-azure-sql-database-to-azure-search-using-indexers
             };
             serviceClient.DataSources.CreateOrUpdate(concertsDataSource);
 
